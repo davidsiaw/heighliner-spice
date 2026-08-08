@@ -47,6 +47,7 @@ module Spice
 
     def validate!
       raise Denied, 'no argv' if @argv.empty?
+      raise Denied, policy.refusal unless policy.permitted?
       return if File.directory?(@cwd)
 
       raise Denied, "cwd #{@cwd.inspect} does not exist on the spice server. " \
@@ -68,6 +69,10 @@ module Spice
 
     def token
       @token ||= Token.new(Config.token)
+    end
+
+    def policy
+      @policy ||= Policy.new(@argv)
     end
 
     def env_var(name)

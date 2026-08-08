@@ -81,6 +81,31 @@ RSpec.describe Spice do
       expect(out).to include('SPICE_URL is not set')
     end
 
+    it 'refuses to let a sandbox rewrite the shared configuration' do
+      with_spice_server do |health, stream|
+        out = IO.popen(client_env(health, stream), [client_path, 'set', 'http-suffix', 'evil.example'],
+                       err: %i[child out], &:read)
+
+        expect(out).to include('one for the user rather than spice')
+      end
+    end
+
+    it 'exits non-zero when it refuses a command' do
+      with_spice_server do |health, stream|
+        IO.popen(client_env(health, stream), [client_path, 'set', 'http-suffix', 'x'], err: %i[child out], &:read)
+
+        expect($CHILD_STATUS.exitstatus).to eq(1)
+      end
+    end
+
+    it 'still allows reading the suffix, which an agent needs to reach the app' do
+      with_spice_server do |health, stream|
+        out = IO.popen(client_env(health, stream), [client_path, 'show', 'http-suffix'], err: %i[child out], &:read)
+
+        expect(out).to include('argv=[show http-suffix]')
+      end
+    end
+
     it 'serves a health endpoint so sp status can ask whether it is alive' do
       with_spice_server do |health, _stream|
         body = Net::HTTP.get(URI("http://127.0.0.1:#{health}/health"))

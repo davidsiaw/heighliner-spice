@@ -85,3 +85,32 @@ Treat it accordingly.
 
 There is no subcommand allowlist. Every heighliner subcommand works, including
 the interactive ones. The token is the boundary, not the command list.
+
+## What a sandbox may not do
+
+Four commands are refused, in `server/policy.rb`. This is about blast radius and
+ownership, not security.
+
+| Command | Why |
+|---|---|
+| `init` | names the environment and allocates its ports, once, for everyone on the project |
+| `deinit` | throws that away again |
+| `shutdown` | stops the shared proxy, DNS and browser containers every project depends on |
+| `set` | rewrites the domain suffix and certificate source for every project on the server |
+
+An agent that runs any of these to make its own build work changes something
+outside the project it was asked to work on, silently.
+
+Each refusal names the command, says why in one sentence, and gives something to
+do next -- what to ask for, or the narrower command that usually solves it. The
+phrasing is deliberately "one for the user rather than spice": an agent that
+reads a refusal as a wall starts hunting for a workaround, and a workaround here
+means editing the `Steerfile` or the app to compensate for a setting it could
+not change.
+
+Reading is untouched. `show http-suffix` and `show cert-source` both work, and
+the skill points agents at them.
+
+Add another only if it has the same shape: host-wide or setup-level effect, no
+per-project meaning, and a person who owns the decision. `down` and `up` stay
+available precisely because they are the project-scoped version of `shutdown`.

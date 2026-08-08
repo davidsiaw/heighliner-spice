@@ -74,12 +74,25 @@ no editors, no prompting installers. Pass the whole command up front.
 
 ```sh
 heighliner logs             # app container output - always look here first
-heighliner down             # stop
-heighliner up               # rebuild and restart after changing the Dockerfile
+heighliner up               # rebuild and restart, keeping the database
 ```
 
 Editing application source does not need a rebuild if the Steerfile bind-mounts
 it; editing the `Dockerfile` or `Steerfile` does.
+
+**`heighliner down` is destructive to development data by design.** To restart,
+use `heighliner up` on its own - it does not need a `down` first.
+
+If you do need `down`, treat `down` then `up` then `db_reset` as a single unit
+of work, and do not stop part-way. Before any `down` whose data you care about,
+take a named snapshot:
+
+```sh
+heighliner db_save before-migration-experiment
+```
+
+Named snapshots restore reliably, so that one command is what turns a risky step
+into a reversible one. Ask before discarding data you did not create.
 
 ## Database
 
@@ -92,6 +105,30 @@ heighliner db_load <name>   # restore a snapshot
 Snapshots are per git branch. See
 [references/workflows.md](references/workflows.md) for environments, services
 and branch behaviour.
+
+## Four commands belong to the user
+
+`init`, `deinit`, `shutdown` and `set` are refused, and spice will tell you so
+with a short explanation and what to ask for. They are either a setup decision
+or they affect every project sharing the server, so a person makes the call.
+
+This is a small list on purpose. Everything that matters day to day is yours:
+`up`, `down`, `attach`, `logs`, `login`, `root`, every `db_*` command, and all
+of `show`.
+
+When you hit one, the useful move is the same each time: **say plainly what you
+were trying to do and what you need**, then continue with the rest of the work.
+A one-line request the user can act on is worth far more than a workaround.
+
+- Not initialised yet? Ask for `heighliner init <name>` on the host, then carry
+  straight on.
+- Think the shared containers are wedged? Try `heighliner down` then
+  `heighliner up` first; that fixes it most of the time.
+- Suffix or certificates look wrong? `heighliner show http-suffix` and
+  `heighliner show cert-source` are yours to read - report what they say.
+
+Being right that a setting is wrong does not make it yours to change, and
+nobody expects you to work around it.
 
 ## Rules
 

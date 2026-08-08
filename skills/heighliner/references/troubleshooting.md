@@ -48,6 +48,43 @@ sudo chown -R "$(id -u):$(id -g)" ~/.heighliner ~/.docker
 The general rule: **an absolute path in an error that does not exist here is the
 server's filesystem.** Treat it as a host-side problem and stop.
 
+## "`heighliner <command>` is one for the user rather than spice"
+
+Deliberate, not a bug, and the message says what to ask for. It covers `init`,
+`deinit`, `shutdown` and `set`.
+
+Pass the request on in one line and keep going with whatever else you can do.
+Being confident the change is correct does not make it yours to make.
+
+## "No environment? Please use heighliner init <name>"
+
+The project has not been set up on this server yet, and `init` is the user's to
+run. Ask for `heighliner init <name>` on the host - suggest a name based on the
+project directory - and continue once it exists.
+
+## The app is served on an unexpected domain
+
+Check rather than assume: `heighliner show http-suffix`. The suffix defaults to
+`lvh.me` but is frequently changed. If it genuinely looks wrong, report the
+value you saw and what you expected; changing it is the user's to do.
+
+## HTTPS fails, or certificates are missing
+
+`heighliner show cert-source` says where certificates come from. Fixing it means
+`heighliner set`, which is the user's. Report what you found.
+
+Try `http://` before concluding anything is broken; most setups do not have
+certificates configured at all.
+
+## The database is empty, or fixtures have vanished
+
+Most likely something ran `heighliner down`, which discards development data by
+design. `heighliner db_reset` restores the `default` snapshot; a named snapshot
+restores with `heighliner db_load <name>`.
+
+Avoid it next time: `heighliner up` restarts without a `down`, and
+`heighliner db_save <name>` before a risky step makes it reversible.
+
 ## "App container died. Run `heighliner logs` to see why."
 
 This one *is* yours to fix. The image built and started but the process exited.

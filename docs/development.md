@@ -10,6 +10,8 @@ two ends of a protocol are read together.
 | `server.rb` | `client/heighliner` | entry point |
 | — | `spice_client/client.rb` | `run` and `main`, so the executable is a shim |
 | `server/config.rb` | — | settings read from the environment |
+| `server/token.rb` | — | the shared secret, compared in constant time |
+| `server/policy.rb` | — | commands a sandbox may not run |
 | `server/errors.rb` (`Denied`) | `spice_client/errors.rb` (`Failure`) | the one error the other party is told about |
 | `server/request.rb` | `spice_client/request.rb` | the opening header: parsed / built |
 | `server/command.rb` | `spice_client/terminal.rb` | the pty / the local terminal |
@@ -167,8 +169,14 @@ client. `sp down && sp up` alone is not enough.
 **Accumulation buffers must be binary.** Use `SpiceWire::Frame.buffer`, never a
 `''` literal. See [protocol.md](protocol.md#buffers-are-binary).
 
-**Do not add a subcommand allowlist back.** Interactive subcommands work now.
-The token is the security boundary.
+**Do not add a subcommand allowlist back.** Interactive subcommands work now,
+and the token is the security boundary, not the command list.
+
+`server/policy.rb` is not that. It is a short denylist of commands whose effect
+is host-wide rather than project-local -- currently just `set`, which rewrites
+the suffix and certificate source for everyone using the server. The test for
+adding one is blast radius and ownership, not danger: could an agent running
+this break another project, and is the decision a person's to make?
 
 **Errors are read by agents.** A `Denied` message is sent verbatim to whoever
 asked, and a pi agent will act on it. "cwd does not exist on the spice server"

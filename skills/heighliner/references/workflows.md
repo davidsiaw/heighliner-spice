@@ -34,6 +34,19 @@ database, by running the Steerfile's `db_reset_command`. `db_reset` is the fast
 way back to a clean fixture set between test runs; `db_reset_hard` is the slow
 way when the database itself is corrupt.
 
+**Take a named snapshot before anything that could lose data**, in particular
+before `heighliner down`, which is destructive by design. Named snapshots
+restore reliably, so `db_save` costs one command and makes the step reversible:
+
+```sh
+heighliner db_save before-i-try-this
+```
+
+Restarting the application does not require `down` at all - `heighliner up` on
+its own rebuilds and restarts while the database survives. If you do use `down`,
+`down` then `up` then `db_reset` is one unit of work; leaving it half-done
+leaves the environment in a state the user did not ask for.
+
 A path starting with `./` writes into the current directory instead of the
 config directory, e.g. `heighliner db_save ./fixture.tar.bz`.
 
