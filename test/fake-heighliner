@@ -1,0 +1,13 @@
+#!/bin/sh
+# Stands in for the real heighliner so the protocol can be tested without
+# docker. Each "subcommand" exercises one feature of the transport.
+case "$1" in
+  readline)    read line; echo "got=$line"; exit 0 ;;
+  echoback)    read line; echo "you-said=$line"; exit 0 ;;
+  winsize)     echo "size=$(stty size)"; exit 0 ;;
+  resizewatch) echo "size=$(stty size)"; sleep 2; echo "size2=$(stty size)"; exit 0 ;;
+  sleeper)     echo ready; sleep 60; exit 0 ;;
+esac
+echo "argv=[$*]"
+echo "cwd=$(pwd)"
+exit 7

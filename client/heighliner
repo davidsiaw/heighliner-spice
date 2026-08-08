@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Spice client.
+#
+# Drop-in stand-in for the heighliner CLI inside a sandbox that has no docker.
+# Connects to a spice server, hands over argv and the current directory, then
+# acts as a dumb terminal for whatever the server runs: stdout comes back,
+# stdin and window resizes go forward, and the real exit code ends it.
+#
+# Stdlib only, so it runs on whatever ruby the sandbox happens to have.
+#
+# The pieces:
+#   spice_client/errors.rb    Failure, the one error the user must act on
+#   spice_client/frame.rb     the wire format, mirrored from the server
+#   spice_client/terminal.rb  this end's terminal, or the absence of one
+#   spice_client/endpoint.rb  where the server is, and connecting to it
+#   spice_client/request.rb   the opening header
+#   spice_client/session.rb   the connection, once it is open
+
+# Load order does not matter: every reference between these files happens at
+# call time, not load time.
+Dir.glob("#{__dir__}/spice_client/*.rb").sort.each { |piece| require piece }
+
+module SpiceClient
+  module_function
+
+  def run(argv)
+    terminal = Terminal.new
+    socket = Endpoint.new.connect
+    request = Request.new(argv: argv, terminal: terminal)
+    Session.new(socket, terminal).run(request)
+  end
+end
+
+begin
+  exit SpiceClient.run(ARGV)
+rescue SpiceClient::Failure => e
+  warn e.message
+  exit 1
+rescue Interrupt
+  # Only reachable when there is no terminal to put in raw mode; with one, ^C
+  # goes to the far end instead.
+  exit 130
+end
