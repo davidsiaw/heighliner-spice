@@ -1,29 +1,38 @@
 # frozen_string_literal: true
 
 module Spice
-  # Everything the server reads from its environment, in one place.
+  # Everything the server reads from its environment.
   module Config
-    module_function
+    # Anything not listed is dropped: a sandbox must not be able to set PATH or
+    # LD_PRELOAD on a process holding the docker socket.
+    ENV_ALLOWLIST = %w[OP_SERVICE_ACCOUNT_TOKEN].freeze
 
-    def health_port
-      Integer(ENV['SPICE_PORT'] || 7529)
+    # An empty variable means unset. Docker hands one over for every `-e NAME=`,
+    # and dying at boot over it would be a poor trade.
+    def self.port(name, default)
+      raw = env_var(name).to_s
+      raw.empty? ? default : Integer(raw)
     end
 
-    def stream_port
-      Integer(ENV['SPICE_STREAM_PORT'] || 7530)
+    def self.health_port
+      port('SPICE_PORT', 7529)
     end
 
-    def token
-      ENV['SPICE_TOKEN'].to_s
+    def self.stream_port
+      port('SPICE_STREAM_PORT', 7530)
     end
 
-    def authenticated?
+    def self.token
+      env_var('SPICE_TOKEN').to_s
+    end
+
+    def self.authenticated?
       !token.empty?
     end
 
-    # Env vars a client is allowed to set on the server-side run. Everything
-    # else is dropped, so a sandbox cannot inject PATH or LD_PRELOAD into a
-    # process that holds the docker socket.
-    ENV_ALLOWLIST = %w[OP_SERVICE_ACCOUNT_TOKEN].freeze
+    def self.env_var(name)
+      ENV.fetch(name, nil)
+    end
+    private_class_method :env_var
   end
 end

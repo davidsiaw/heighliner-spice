@@ -3,21 +3,19 @@
 require 'io/console'
 
 module SpiceClient
-  # This end's terminal, or the absence of one.
-  #
-  # Whether we are a terminal decides how the far end behaves: the server only
-  # puts its pty in terminal mode when there is a terminal here to serve.
+  # This end's terminal, or the absence of one. Whether we are a terminal
+  # decides how the server's pty behaves; see spice/docs/protocol.md#terminals.
   class Terminal
-    def initialize(input: $stdin, output: $stdout)
+    def initialize(input: $stdin, output: $stdout, error: $stderr)
       @input = input
       @output = output
+      @error = error
     end
 
     def tty?
       @output.tty?
     end
 
-    # [rows, cols], or [0, 0] when there is no terminal to ask.
     def size
       return [0, 0] unless tty?
 
@@ -26,13 +24,12 @@ module SpiceClient
       [0, 0]
     end
 
-    # Raw mode stops the local terminal from interpreting ^C, so the byte
-    # travels to the remote pty and the *remote* process group gets the signal.
-    # Without it, ^C would kill this client and orphan the command on the server.
-    def raw(&block)
+    # Raw mode is what sends ^C to the *remote* process group instead of killing
+    # this client and orphaning the command.
+    def raw(&)
       return yield unless @input.tty?
 
-      @input.raw(&block)
+      @input.raw(&)
     end
 
     def on_resize
@@ -51,6 +48,10 @@ module SpiceClient
     def write(bytes)
       @output.write(bytes)
       @output.flush
+    end
+
+    def warn(message)
+      @error.puts(message)
     end
   end
 end

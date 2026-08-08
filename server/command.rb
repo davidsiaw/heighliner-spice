@@ -5,28 +5,27 @@ require 'io/console'
 
 module Spice
   # One run of the real heighliner, on a pty.
-  #
-  # The pty is not optional: it is what makes `docker exec -ti` work at all, and
-  # what keeps docker's build output unbuffered. Everything else here is about
-  # making that pty behave for whoever is on the far end.
   class Command
+    PROGRAM = 'heighliner'
+
+    # $0 is the program, $1 the directory, and the rest the arguments. Nothing
+    # is interpolated, so nothing the client sent is ever parsed by the shell.
+    SCRIPT = 'cd "$1" && shift && exec "$0" "$@"'
+
     attr_reader :reader, :writer, :pid
 
-    def initialize(request)
+    def initialize(request, program: PROGRAM)
       @request = request
+      @program = program
     end
 
     def start
-      # $0 and $@ carry cwd and argv as separate words, so nothing the client
-      # sent is ever parsed by the shell.
       @reader, @writer, @pid = PTY.spawn(
-        @request.env, '/bin/sh', '-c', 'cd "$0" && exec heighliner "$@"',
-        @request.cwd, *@request.argv
+        @request.env, '/bin/sh', '-c', SCRIPT,
+        @program, @request.cwd, *@request.argv
       )
 
-      # For a client that is not a terminal -- an agent capturing output -- the
-      # line discipline is pure noise: it would litter every line with ^M and
-      # echo back anything piped in.
+      # Raw for a non-terminal client, or its output arrives full of ^M.
       raw! unless @request.tty?
       resize(@request.rows, @request.cols)
       self
@@ -35,10 +34,9 @@ module Spice
     def write(bytes)
       @writer.write(bytes)
     rescue Errno::EIO, IOError
-      # Child is gone; the read side will notice and end the loop.
+      nil
     end
 
-    # Ctrl-D, so a command reading stdin sees end-of-input through the tty.
     def end_input
       write("\x04")
     end
@@ -50,10 +48,9 @@ module Spice
 
       @reader.winsize = [rows, cols]
     rescue StandardError
-      # Not fatal: the command just runs at the default size.
+      nil
     end
 
-    # Ends the command if it is still running and returns its exit code.
     def stop
       terminate
       code = reap

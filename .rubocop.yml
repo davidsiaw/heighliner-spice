@@ -1,0 +1,11 @@
+plugins:
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.1
+  NewCops: enable
+
+# The only relaxed cop. Examples inline their own setup instead of hoisting it
+# into let/subject, so they are longer on purpose. See docs/testing.md.
+RSpec/ExampleLength:
+  Enabled: false

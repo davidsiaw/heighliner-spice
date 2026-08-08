@@ -8,6 +8,9 @@ RUN gem install webrick --no-document
 COPY server.rb /app/spice/server.rb
 COPY server /app/spice/server
 
+# The wire format, shared by both halves.
+COPY wire /app/spice/wire
+
 # The client ships inside the server image so `sp up` can publish it into a
 # volume for sandboxes. Same image, same version -- the two cannot drift.
 COPY client /app/spice/client

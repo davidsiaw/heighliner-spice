@@ -1,63 +1,58 @@
 # frozen_string_literal: true
 
 module Spice
-  # One client connection: parse the header, run the command, and shuttle bytes
-  # between the socket and the pty until one of them ends.
+  # One client connection: run the command, shuttle bytes until either end stops.
   class Session
-    CHUNK = 65_536
+    Frame = SpiceWire::Frame
 
-    def initialize(sock)
-      @sock = sock
-      @buf = +''.b
+    def initialize(socket, program: Command::PROGRAM)
+      @channel = SpiceWire::Channel.new(socket)
+      @program = program
     end
 
     def run
-      request = Request.parse(@sock.gets("\n"))
-      command = Command.new(request).start
-      begin
-        pump(command)
-      ensure
-        send_frame(Frame::EXIT, command.stop.to_s)
-      end
+      execute(Request.parse(@channel.read_line))
     rescue Denied => e
-      send_frame(Frame::ERROR, e.message)
+      @channel.send_frame(Frame::ERROR, e.message)
     rescue StandardError => e
-      send_frame(Frame::ERROR, "spice: #{e.class}: #{e.message}")
+      @channel.send_frame(Frame::ERROR, "spice: #{e.class}: #{e.message}")
     ensure
       close
     end
 
-    private
+    def execute(request)
+      command = Command.new(request, program: @program).start
+      pump(command)
+    ensure
+      @channel.send_frame(Frame::EXIT, command.stop.to_s) if command
+    end
 
     def pump(command)
       loop do
-        ready, = IO.select([@sock, command.reader])
+        ready, = IO.select([@channel, command.reader])
         return unless ready
-
-        return if ready.include?(command.reader) && !forward_output(command)
-        return if ready.include?(@sock) && !forward_input(command)
+        return if ready.include?(command.reader) && command_finished?(command)
+        return if ready.include?(@channel) && client_gone?(command)
       end
     end
 
-    # Returns false when the command is finished.
-    def forward_output(command)
-      send_frame(Frame::DATA, command.reader.read_nonblock(CHUNK))
-      true
+    # Sends whatever the command has produced. True once it has closed its pty.
+    def command_finished?(command)
+      @channel.send_frame(Frame::DATA, command.reader.read_nonblock(SpiceWire::Channel::CHUNK))
+      false
     rescue IO::WaitReadable
-      true # Spurious wakeup.
+      false
     rescue EOFError, Errno::EIO
-      false # The child closed the pty.
+      true
     end
 
-    # Returns false when the client is gone.
-    def forward_input(command)
-      @buf << @sock.read_nonblock(CHUNK)
-      Frame.drain(@buf) { |type, payload| dispatch(command, type, payload) }
-      true
-    rescue IO::WaitReadable
-      true
-    rescue EOFError, Errno::ECONNRESET
-      # Do not leave the command running with nobody watching it.
+    # Dispatches whatever the client sent. True once the client has vanished,
+    # which is what makes execute kill the command rather than orphan it.
+    def client_gone?(command)
+      frames = @channel.receive_frames
+      return true if frames.nil?
+
+      frames.each { |type, payload| dispatch(command, type, payload) }
       false
     end
 
@@ -70,15 +65,11 @@ module Spice
     end
 
     def send_frame(type, payload = '')
-      @sock.write(Frame.pack(type, payload))
-    rescue StandardError
-      # Client is gone; nothing useful left to do.
+      @channel.send_frame(type, payload)
     end
 
     def close
-      @sock.close
-    rescue StandardError
-      nil
+      @channel.close
     end
   end
 end

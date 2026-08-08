@@ -1,59 +1,41 @@
 # frozen_string_literal: true
 
-# Spice server.
-#
-# Runs inside a container that has /var/run/docker.sock and the host project
-# tree mounted at its real path. Accepts heighliner argv from sandboxed agents
-# that have no docker of their own, runs the real heighliner attached to a pty,
-# and proxies that pty back over a socket.
-#
-# Two listeners:
-#   SPICE_PORT         HTTP, /health only
-#   SPICE_STREAM_PORT  the framed duplex protocol that actually runs commands
-#
-# The duplex socket is what makes `attach`, `login` and `root` work: they need
-# stdin and window-size changes travelling the other way, which a single HTTP
-# request/response cannot express.
-#
-# This process holds the docker socket on behalf of whoever can reach it. It
-# requires a shared token. Do not expose it beyond a local docker network.
-#
-# The pieces:
-#   server/config.rb    environment settings
-#   server/errors.rb    Denied, the one error a client is told about
-#   server/frame.rb     the wire format, shared with the client
-#   server/request.rb   the opening header: auth, argv, cwd, env, terminal
-#   server/command.rb   one heighliner run on a pty
-#   server/session.rb   one connection: socket <-> pty
-#   server/health.rb    the HTTP health endpoint
-#   server/listener.rb  accept loop
+# Spice server. See spice/docs/ for the design; docs/development.md for layout.
 
-# Load order does not matter: every reference between these files happens at
-# call time, not load time. Reintroducing a load-time dependency (a superclass,
-# or a constant assigned from another file) would make this alphabetical order
-# load-bearing, so do not.
-Dir.glob("#{__dir__}/server/*.rb").sort.each { |piece| require piece }
+# Safe only while nothing here is referenced at load time. See
+# docs/development.md#loading.
+Dir.glob("#{__dir__}/wire/*.rb").each { |piece| require piece }
+Dir.glob("#{__dir__}/server/*.rb").each { |piece| require piece }
 
+# Runs heighliner on behalf of sandboxes that have no docker socket.
 module Spice
-  module_function
-
-  def run
-    warn 'spice: SPICE_TOKEN is empty, running unauthenticated' unless Config.authenticated?
-
+  def self.run
+    warn_if_open
     health = Health.server
     Thread.new { health.start }
+    stop_on_signal(health)
+    announce
+    Listener.new.start
+  end
 
+  def self.warn_if_open
+    return if Config.authenticated?
+
+    warn 'spice: SPICE_TOKEN is empty, running unauthenticated'
+  end
+
+  def self.stop_on_signal(health)
     %w[INT TERM].each do |signal|
       trap(signal) do
         health.shutdown
         exit 0
       end
     end
+  end
 
+  def self.announce
     warn "spice: health on 0.0.0.0:#{Config.health_port}, " \
          "stream on 0.0.0.0:#{Config.stream_port}"
-
-    Listener.new.start
   end
 end
 

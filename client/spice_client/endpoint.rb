@@ -5,16 +5,29 @@ require 'uri'
 
 module SpiceClient
   # Where the spice server is, and how to open a connection to it.
-  #
-  # Both failures here are the user's to fix and neither is fixable from inside
-  # the sandbox, so the messages say so plainly rather than reporting an
-  # exception and leaving the reader to guess.
   class Endpoint
     DEFAULT_STREAM_PORT = 7530
 
     attr_reader :host, :port
 
-    def initialize(url: ENV['SPICE_URL'].to_s, port: ENV['SPICE_STREAM_PORT'])
+    def self.from_env
+      new(url: env_var('SPICE_URL'), port: env_var('SPICE_STREAM_PORT'))
+    end
+
+    # An empty variable means unset; docker supplies one for every `-e NAME=`.
+    def self.stream_port(raw)
+      raw = raw.to_s
+      raw.empty? ? DEFAULT_STREAM_PORT : Integer(raw)
+    end
+
+    def self.env_var(name)
+      ENV.fetch(name, nil)
+    end
+    private_class_method :env_var
+
+    def initialize(url:, port: nil)
+      url = url.to_s
+
       raise Failure, <<~MSG if url.empty?
         heighliner: SPICE_URL is not set, so there is no docker to talk to.
 
@@ -24,14 +37,13 @@ module SpiceClient
 
       # SPICE_URL names the health endpoint; only its host is used here.
       @host = URI.parse(url).host || url
-      @port = Integer(port || DEFAULT_STREAM_PORT)
+      @port = self.class.stream_port(port)
     end
 
     def connect
       TCPSocket.new(@host, @port).tap { |sock| sock.sync = true }
     rescue SocketError, SystemCallError => e
-      # SocketError covers DNS failure, which is what you get when the spice
-      # container is not running, or this container is not on its network.
+      # SocketError here means DNS failed, i.e. no spice container.
       raise Failure, <<~MSG
         heighliner: cannot reach the spice server at #{@host}:#{@port}
           #{e.class}: #{e.message}
