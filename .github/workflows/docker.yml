@@ -1,0 +1,39 @@
+name: spice-docker
+
+# The image is only built and pushed from master, so a pull request can never
+# publish davidsiaw/heighliner-spice. Lint and test run in their own workflows;
+# this one depends on both passing.
+'on':
+  push:
+    branches:
+    - master
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+    - name: Login to Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PAT }}
+    # Two tags from one build: latest for `sp up`, and the commit sha so a
+    # sandbox that misbehaves can be pinned to exactly what it ran.
+    - name: Build and push
+      run: |
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          -t davidsiaw/heighliner-spice:latest \
+          -t davidsiaw/heighliner-spice:${{ github.sha }} \
+          --cache-from type=gha \
+          --cache-to type=gha,mode=max \
+          --push \
+          .

@@ -1,0 +1,24 @@
+name: spice-rubocop
+
+'on':
+  push:
+    branches:
+    - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rubocop:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.4'
+        bundler-cache: true
+    # The whole tree, not only changed files: spice has no offences and no
+    # suppressions, and the point is to keep it that way.
+    - name: Run rubocop
+      run: bundle exec rubocop
