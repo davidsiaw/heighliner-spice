@@ -167,7 +167,8 @@ deployment. They can still drift in the repo. Order of work:
 
 **Rebuild the image after any change under `spice/`.** The client and skill are
 published out of the image by `sp up`, so a stale image publishes a stale
-client. `sp down && sp up` alone is not enough.
+client. `sp down && sp up` alone is not enough. Working locally, rebuild and then
+`sp up`; from a pushed image, `sp update` pulls and restarts in one go.
 
 **Accumulation buffers must be binary.** Use `SpiceWire::Frame.buffer`, never a
 `''` literal. See [protocol.md](protocol.md#buffers-are-binary).

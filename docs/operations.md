@@ -9,9 +9,12 @@ docker build -t davidsiaw/heighliner-spice spice/
 docker push davidsiaw/heighliner-spice
 ```
 
-`sp` only runs it, and pulls it if it is missing. Rebuild whenever anything
-under `spice/` changes: the client, the shared `wire/` code and the skill are
-all published out of the image, so a stale image means a stale client.
+`sp up` only runs it, and pulls it if it is missing; `sp update` pulls and
+restarts. Rebuild whenever anything under `spice/` changes: the client, the
+shared `wire/` code and the skill are all published out of the image, so a stale
+image means a stale client.
+
+After pushing a new image, `sp update` on each host is the whole upgrade.
 
 Before building, from `spice/`:
 
@@ -24,11 +27,20 @@ bundle exec rubocop
 
 ```sh
 sp up        # start the server, publish the client and skill into a volume
+sp update    # pull a newer image and restart onto it
 sp down      # stop it
 sp status    # is it alive
 sp logs      # follow its output
 sp env       # the docker flags a sandbox needs to reach it
 ```
+
+`up` pulls only when the image is missing. Starting the server is the common
+operation and it should not need the network, or a registry having a bad day.
+
+`update` is how you upgrade, and it always restarts afterwards — even when the
+pull changed nothing. Both halves come out of this one image, so a pull on its own
+would leave the running server on the old image and the client volume on the new
+one, which is the drift the shared image exists to make impossible.
 
 `pa` wires all of that up by itself when a spice server is running, so inside a
 sandbox `heighliner up` simply works. `sp env` prints the same flags for
