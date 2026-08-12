@@ -55,6 +55,83 @@ anything else you want to connect.
 | `SPICE_STREAM_PORT` | `7530` | the command stream |
 | `SPICE_TOKEN_FILE` | `~/.local/share/spice/token` | shared secret |
 | `SPICE_CLIENT_VOLUME` | `spice-client` | volume the client is published into |
+| `SPICE_DOCKER_CONFIG` | `~/.local/share/spice/docker` | the server's own docker CLI config dir, written by `sp up` (see [Reaching the docker daemon](#reaching-the-docker-daemon)) |
+
+## Reaching the docker daemon
+
+Two things must be right, and both were wrong on macOS until they were found by
+running `kaiser show http-suffix` against a real project:
+
+**`DOCKER_HOST` is set explicitly.** Spice mounts `$HOME` at its real path, so the
+docker CLI inside the container reads *your* `~/.docker/config.json`, finds
+`"currentContext": "desktop-linux"`, and dials that context's endpoint —
+`unix:///Users/you/.docker/run/docker.sock`, a host path that does not exist in
+the container. The socket correctly mounted at `/var/run/docker.sock` was ignored,
+and every docker-touching command failed with *"Cannot connect to the Docker
+daemon"*. CLI precedence is `DOCKER_HOST` > context > default, so `sp` names the
+socket explicitly.
+
+**The socket's group is added, and it is measured from inside a container.**
+`sp` runs one `alpine stat -c '%g' /var/run/docker.sock` with the socket mounted,
+and passes the result to `--group-add`.
+
+Asking the host instead was wrong twice, and both mistakes produced the identical
+*"permission denied while trying to connect to the docker API"*:
+
+1. `stat -c` is GNU syntax and macOS ships BSD `stat`, which needs `-f`. The call
+   failed silently — stderr inside `$( )`, with a fallback swallowing it — so
+   `${DOCKER_GID:+--group-add ...}` expanded to nothing and no group was added.
+2. Fixing the syntax was still not enough, because `/var/run/docker.sock` on macOS
+   is a **symlink** into Docker Desktop's VM and `stat` does not follow symlinks by
+   default. Measured on one host:
+
+   | asked | answer |
+   |---|---|
+   | host, `stat -f '%u %g %Sp'` | `0 1 lrwxr-xr-x` — the *link*, gid 1 |
+   | inside a container, `stat -c '%u %g %a'` | `0 0 660` — the *socket* |
+
+   So the BSD form yielded `--group-add 1`: a real group, and the wrong one.
+   `docker inspect ... {{.HostConfig.GroupAdd}}` confirmed `[1]`.
+
+The container probe has no GNU/BSD branch and no symlink ambiguity, because it
+asks in the namespace where the number is actually used. It costs one short
+container run per `sp up`, and if it fails the flag is omitted rather than passed
+a bogus value.
+
+Why group `0` is sufficient: the socket is `root:root` mode `0660`, and the server
+runs `--user 501:20`. The uid does not match the owner, so the owner bits do not
+apply — but a supplementary group of `0` matches the socket's gid, so the group
+`rw` bits do.
+
+**The server gets its own docker CLI config.** Third instance of the same root
+cause: `$HOME` is mounted, so the CLI reads your `~/.docker/config.json`, which on
+a Mac says `"credsStore": "desktop"`. It then tries to exec
+`docker-credential-desktop` — a macOS binary absent from a Linux container — and
+**every image pull fails**, including public ones that need no credentials:
+
+```
+error getting credentials - err: exec: "docker-credential-desktop":
+executable file not found in $PATH
+```
+
+`sp up` writes `~/.local/share/spice/docker/config.json`, keeping the keys that
+travel (`auths` entries that actually carry a token) and dropping the ones that
+name host-only executables (`credsStore`, `credHelpers`) or a host-only endpoint
+(`currentContext`). The server runs with `DOCKER_CONFIG` pointed at it.
+
+Do **not** fix this by editing `~/.docker/config.json`. Removing `credsStore`
+works, and it does so by moving every registry credential you own out of the macOS
+Keychain into base64 in a plaintext file — a real security downgrade to work
+around a path problem. Your host config is right for your host; the container
+needs a different one, so it gets a different one.
+
+An empty `{}` is written when the host has no config, when it cannot be parsed, or
+when nothing in it is worth carrying. That is the correct state for anonymous
+pulls of public images.
+
+A supplementary group is safe here: a new file takes the process's **primary**
+gid, which `--user` still pins to yours, so `--group-add` cannot reintroduce the
+root-owned-files problem described next.
 
 ## File ownership
 
