@@ -61,13 +61,14 @@ Being confident the change is correct does not make it yours to make.
 
 ## "No Steerfile in current directory"
 
-Every command fails this way, including `show`. Heighliner reads `Steerfile`,
-`Heighliner.config` or `heighliner.config`, and nothing else.
+Every command fails this way, including `show`. The message lists the names
+heighliner accepts: `Kaiserfile`, `Steerfile`, `Heighliner.config`,
+`heighliner.config`. Read the list it printed rather than assuming.
 
-If the project has a `Kaiserfile`, that is the cause: it is the pre-rename name,
-and it was not kept. Renaming it changes the project for everyone on it, so
-report what you found and ask. Do not rename it, and do not add a second file
-beside it.
+A `Kaiserfile` is **not** the cause -- it is accepted (it is the pre-rename name
+for the same file). If you see this error, you are in the wrong directory: the
+project root is wherever that file is. `ls` and check before concluding anything
+about the project's setup, and do not create a `Steerfile` to "fix" it.
 
 ## "No environment? Please use heighliner init <name>"
 

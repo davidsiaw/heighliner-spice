@@ -3,10 +3,16 @@ name: spice-docker
 # The image is only built and pushed from master, so a pull request can never
 # publish davidsiaw/heighliner-spice. Lint and test run in their own workflows;
 # this one depends on both passing.
+# workflow_dispatch is here because this image's contents can change without a
+# commit to THIS repo: it is FROM davidsiaw/heighliner:latest, so a fix merged in
+# heighliner needs a spice rebuild to reach any sandbox, and nothing here would
+# otherwise trigger one. Run it by hand after a heighliner release, or call it
+# from heighliner's own workflow.
 'on':
   push:
     branches:
     - master
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,9 +33,16 @@ jobs:
         password: ${{ secrets.DOCKERHUB_PAT }}
     # Two tags from one build: latest for `sp up`, and the commit sha so a
     # sandbox that misbehaves can be pinned to exactly what it ran.
+    #
+    # --pull is load-bearing. This image is FROM davidsiaw/heighliner:latest, and
+    # without it buildx happily reuses a cached base layer -- so a heighliner fix
+    # that was merged and pushed would NOT appear here, while every tag claimed it
+    # had. The failure is silent: the build succeeds, `sp update` reports a new
+    # digest, and the server still runs the old heighliner.
     - name: Build and push
       run: |
         docker buildx build \
+          --pull \
           --platform linux/amd64,linux/arm64 \
           -t davidsiaw/heighliner-spice:latest \
           -t davidsiaw/heighliner-spice:${{ github.sha }} \

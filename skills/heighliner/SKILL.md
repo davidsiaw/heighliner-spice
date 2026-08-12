@@ -31,14 +31,17 @@ shown and exits non-zero. Always give it an argument.
 
 ## If this project still says kaiser
 
-Heighliner used to be called kaiser. `kaiser` is on the PATH here and does the
-same thing, so an old script or README that calls it still works.
+Heighliner used to be called kaiser, and the rename left nothing for you to do:
 
-One thing did not carry over: the project file must be named `Steerfile`,
-`Heighliner.config` or `heighliner.config`. On a project that only has a
-`Kaiserfile`, every command fails with *No Steerfile in current directory*.
-Renaming it is a project decision, so say what you found and ask; do not rename
-it yourself, and do not write a second file alongside it.
+- `kaiser` is on the PATH here and runs the same binary, so an old script or
+  README that calls it still works.
+- A `Kaiserfile` is read as-is. The accepted names are `Kaiserfile`, `Steerfile`,
+  `Heighliner.config` and `heighliner.config`; the contents are identical.
+- Config lives in `~/.kaiser` on an old install, and heighliner keeps using it.
+
+So **do not rename a `Kaiserfile`**, and do not add a `Steerfile` beside one. It
+already works, and doing either would change the project for everyone on it. If
+both files exist, `Steerfile` is the one that wins.
 
 ## The core loop
 
