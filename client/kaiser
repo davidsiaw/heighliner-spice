@@ -1,0 +1,8 @@
+#!/bin/sh
+# Heighliner used to be called kaiser (degica/kaiser). The commands and the
+# config format never changed, so old habits, old scripts and old READMEs keep
+# working inside a sandbox.
+#
+# A wrapper rather than a symlink: the client resolves ../wire from its own path
+# and prints its own name in errors, and neither should ever say "kaiser".
+exec "$(dirname "$0")/heighliner" "$@"

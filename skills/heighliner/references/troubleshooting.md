@@ -45,6 +45,9 @@ run, on the host:
 sudo chown -R "$(id -u):$(id -g)" ~/.heighliner ~/.docker
 ```
 
+If the path in the error is `~/.kaiser`, name that instead: heighliner used to be
+called kaiser and keeps using the old directory when it is the only one there.
+
 The general rule: **an absolute path in an error that does not exist here is the
 server's filesystem.** Treat it as a host-side problem and stop.
 
@@ -55,6 +58,16 @@ Deliberate, not a bug, and the message says what to ask for. It covers `init`,
 
 Pass the request on in one line and keep going with whatever else you can do.
 Being confident the change is correct does not make it yours to make.
+
+## "No Steerfile in current directory"
+
+Every command fails this way, including `show`. Heighliner reads `Steerfile`,
+`Heighliner.config` or `heighliner.config`, and nothing else.
+
+If the project has a `Kaiserfile`, that is the cause: it is the pre-rename name,
+and it was not kept. Renaming it changes the project for everyone on it, so
+report what you found and ask. Do not rename it, and do not add a second file
+beside it.
 
 ## "No environment? Please use heighliner init <name>"
 

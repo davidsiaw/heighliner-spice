@@ -8,6 +8,10 @@ RUN gem install webrick --no-document
 COPY server.rb /app/spice/server.rb
 COPY server /app/spice/server
 
+# Answers what heighliner calls its config dir, network and containers, so the
+# host scripts do not have to know. Run on its own, not by the server.
+COPY settings.rb /app/spice/settings.rb
+
 # The wire format, shared by both halves.
 COPY wire /app/spice/wire
 

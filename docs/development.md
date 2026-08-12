@@ -8,6 +8,7 @@ two ends of a protocol are read together.
 | Server | Client | Job |
 |---|---|---|
 | `server.rb` | `client/heighliner` | entry point |
+| `settings.rb` | `client/kaiser` | run on their own, not part of a session |
 | — | `spice_client/client.rb` | `run` and `main`, so the executable is a shim |
 | `server/config.rb` | — | settings read from the environment |
 | `server/token.rb` | — | the shared secret, compared in constant time |
@@ -18,6 +19,7 @@ two ends of a protocol are read together.
 | `server/session.rb` | `spice_client/session.rb` | one connection, byte shuttling |
 | `server/health.rb` | — | HTTP `/health` |
 | `server/listener.rb` | — | accept loop |
+| `server/settings.rb`, `server/heighliner_settings.rb` | — | what heighliner calls its config dir, network and containers — see [settings.md](settings.md) |
 
 Shared, in `wire/`:
 
@@ -41,6 +43,7 @@ mirrors the repo layout so the client's `../wire` resolves the same in both:
 
 ```
 /opt/spice/client/heighliner     the executable; this directory goes on PATH
+/opt/spice/client/kaiser         a wrapper for the pre-rename name
 /opt/spice/client/spice_client/  client-only code
 /opt/spice/wire/                 shared with the server
 /opt/spice/skills/               the pi skill

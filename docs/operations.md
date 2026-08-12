@@ -38,7 +38,7 @@ anything else you want to connect.
 |---|---|---|
 | `SPICE_IMAGE` | `davidsiaw/heighliner-spice:latest` | image to run |
 | `SPICE_NAME` | `heighliner-spice` | container name, and the hostname sandboxes use |
-| `SPICE_NETWORK` | `heighliner_net` | docker network |
+| `SPICE_NETWORK` | whatever heighliner's config names | docker network. Read from heighliner rather than assumed, because a pre-rename install calls it `kaiser_net` — see [settings.md](settings.md) |
 | `SPICE_PORT` | `7529` | HTTP health |
 | `SPICE_STREAM_PORT` | `7530` | the command stream |
 | `SPICE_TOKEN_FILE` | `~/.local/share/spice/token` | shared secret |
@@ -49,7 +49,7 @@ anything else you want to connect.
 Spice runs heighliner as the invoking user (`--user`, plus `--group-add` for the
 docker socket's group). It has to: it bind-mounts `$HOME` and shells out to
 docker, buildx and git. As root, those leave root-owned files in `~/.docker` and
-`~/.heighliner` that then break the same tools run directly on the host.
+heighliner's config dir that then break the same tools run directly on the host.
 
 The plain `davidsiaw/heighliner` docker alias *does* write those directories as
 root, so if you use it too they can end up unwritable by you. `sp up` checks for
@@ -60,13 +60,16 @@ agent that cannot see host paths at all and will misread it as its own problem:
 sudo chown -R "$(id -u):$(id -g)" ~/.heighliner ~/.docker
 ```
 
-The token deliberately lives in `~/.local/share/spice/`, outside
-`~/.heighliner`, for the same reason.
+`sp` names the directory it actually checked, which on a pre-rename install is
+`~/.kaiser`.
+
+The token deliberately lives in `~/.local/share/spice/`, outside the config dir,
+for the same reason.
 
 ## Shared state
 
 Heighliner state lives on the server. Two sandboxes working on one project share
-one `~/.heighliner/config.yml`, which is what you want, but they can also stomp
+one `config.yml`, which is what you want, but they can also stomp
 on each other's containers.
 
 ## Security

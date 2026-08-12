@@ -79,8 +79,10 @@ sandbox with no `docker`, no `/var/run/docker.sock` and an unexplained
 
 ## Networking
 
-Everything sits on `heighliner_net`, the network heighliner creates for itself.
-That means the sandbox can reach the app it just booted, by name, through
+Everything sits on the network heighliner creates for itself — `heighliner_net`,
+or `kaiser_net` on an install that predates the rename. Which one is read from
+heighliner's config rather than assumed; see [settings.md](settings.md). That
+means the sandbox can reach the app it just booted, by name, through
 heighliner's own dnsmasq — which is the entire point of letting an agent run the
 app at all.
 
